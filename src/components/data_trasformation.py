@@ -15,10 +15,12 @@ from src.logger import logging
 from src.utils import save_object
 
 
-
 @dataclass
 class DataTransformationConfig:
-    preprocessor_obj_file_path = os.path.join("artifacts", "preprocessor.pkl")
+    preprocessor_obj_file_path = os.path.join(
+        "artifacts",
+        "preprocessor.pkl"
+    )
 
 
 class DataTransformation:
@@ -26,12 +28,12 @@ class DataTransformation:
         self.data_transformation_config = DataTransformationConfig()
 
     def get_data_transformer_object(self):
-        """
-        Creates the preprocessing pipeline.
-        """
-
         try:
-            numerical_columns = ["reading_score","writing_score"]
+
+            numerical_columns = [
+                "reading_score",
+                "writing_score"
+            ]
 
             categorical_columns = [
                 "gender",
@@ -41,7 +43,6 @@ class DataTransformation:
                 "test_preparation_course"
             ]
 
-            # Numerical Pipeline
             num_pipeline = Pipeline(
                 steps=[
                     ("imputer", SimpleImputer(strategy="median")),
@@ -49,18 +50,16 @@ class DataTransformation:
                 ]
             )
 
-            logging.info("Numerical pipeline completed.")
-
-            # Categorical Pipeline
             cat_pipeline = Pipeline(
                 steps=[
                     ("imputer", SimpleImputer(strategy="most_frequent")),
-                    ("one_hot_encoder", OneHotEncoder()),
-                    ("scaler", StandardScaler())
+                    ("one_hot_encoder", OneHotEncoder(handle_unknown="ignore")),
+                    ("scaler", StandardScaler(with_mean=False))
                 ]
             )
 
-            logging.info("Categorical pipeline completed.")
+            logging.info("Numerical Pipeline Created")
+            logging.info("Categorical Pipeline Created")
 
             preprocessor = ColumnTransformer(
                 transformers=[
@@ -69,7 +68,7 @@ class DataTransformation:
                 ]
             )
 
-            logging.info("Preprocessing object created successfully.")
+            logging.info("Preprocessor Object Created")
 
             return preprocessor
 
@@ -78,35 +77,37 @@ class DataTransformation:
 
     def initiate_data_transformation(self, train_path, test_path):
         try:
+
             train_df = pd.read_csv(train_path)
             test_df = pd.read_csv(test_path)
 
-            logging.info("Train and Test datasets loaded successfully.")
+            logging.info("Train and Test Data Loaded")
 
             preprocessing_obj = self.get_data_transformer_object()
 
             target_column_name = "math_score"
-            numerical_columns = ["reading_score","writing_score"]
 
             input_feature_train_df = train_df.drop(
-                columns=[target_column_name], axis=1
+                columns=[target_column_name],
+                axis=1
             )
 
             target_feature_train_df = train_df[target_column_name]
 
             input_feature_test_df = test_df.drop(
-                columns=[target_column_name], axis=1
+                columns=[target_column_name],
+                axis=1
             )
 
             target_feature_test_df = test_df[target_column_name]
 
-            logging.info(
-                "Applying preprocessing object on training and testing datasets."
-            )
+            logging.info("Applying Preprocessing on Train Data")
 
             input_feature_train_arr = preprocessing_obj.fit_transform(
                 input_feature_train_df
             )
+
+            logging.info("Applying Preprocessing on Test Data")
 
             input_feature_test_arr = preprocessing_obj.transform(
                 input_feature_test_df
@@ -122,21 +123,35 @@ class DataTransformation:
                 np.array(target_feature_test_df)
             ]
 
-            logging.info("Saving preprocessing object.")
-
             save_object(
                 file_path=self.data_transformation_config.preprocessor_obj_file_path,
                 obj=preprocessing_obj
             )
 
-            logging.info("Data Transformation completed successfully.")
+            logging.info("Preprocessor Saved Successfully")
 
             return (
                 train_arr,
-                test_arr,
-                self.data_transformation_config.preprocessor_obj_file_path
+                test_arr
             )
 
         except Exception as e:
             raise CustomException(e, sys)
 
+
+if __name__ == "__main__":
+
+    from src.components.data_ingestion import DataIngestion
+
+    ingestion = DataIngestion()
+
+    train_path, test_path = ingestion.initiate_data_ingestion()
+
+    transformer = DataTransformation()
+
+    train_arr, test_arr = transformer.initiate_data_transformation(
+        train_path,
+        test_path
+    )
+
+    print("Data Transformation Completed Successfully")
